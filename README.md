@@ -13,6 +13,13 @@ public class Client {
     }
 }
 ```
+- **Injection into fields**
+```cs
+public class Client {
+    [Inject] private Writer _writer;
+    [Inject] private ISaveService _saveService;
+}
+```
 ## Registration
 To register your dependency in the container, use ``` Container.Register ``` method. In the method parameters, you need to pass the instance of the dependency
 ```cs
