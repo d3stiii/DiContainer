@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace DiContainer; 
+namespace DiContainer;
 
 public class Container {
     public Container() =>
@@ -21,8 +21,13 @@ public class Container {
     }
 
     private void Inject<T>(T instance) {
+        InjectIntoMethod(instance);
+        InjectIntoField(instance);
+    }
+
+    private void InjectIntoMethod<T>(T instance) {
         var injectionsMethods = typeof(T)
-            .GetMethods()
+            .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
             .Where(method => method.GetCustomAttribute(typeof(InjectAttribute)) != null);
         foreach (var method in injectionsMethods) {
             object[] parameters = method.GetParameters()
@@ -33,6 +38,20 @@ public class Container {
                 .ToArray()!;
 
             method.Invoke(instance, parameters);
+        }
+    }
+
+    private void InjectIntoField<T>(T instance) {
+        var injectionFields = typeof(T)
+            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+            .Where(field => field.GetCustomAttributes(typeof(InjectAttribute)) != null);
+
+        foreach (var field in injectionFields) {
+            var dependency = typeof(Container).GetMethod(nameof(GetInstance))
+                ?.MakeGenericMethod(field.FieldType)
+                .Invoke(this, null);
+
+            field.SetValue(instance, dependency);
         }
     }
 
