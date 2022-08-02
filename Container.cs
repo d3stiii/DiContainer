@@ -6,6 +6,25 @@ public class Container {
     public Container() =>
         Register(this);
 
+    public T? GetInstance<T>() =>
+        Implementation<T>.ServiceInstance;
+
+    public void Register<T>(T instance) =>
+        Implementation<T>.ServiceInstance = instance;
+
+    public void ConfigureInstallers() {
+        Type parentType = typeof(Installer);
+        var installers = Assembly.GetCallingAssembly()
+            .GetTypes()
+            .Where(type => parentType.IsAssignableFrom(type) && parentType != type)
+            .Select(type => {
+                var installer = (Installer)Activator.CreateInstance(type)!;
+                Inject(installer);
+                installer.Install();
+                return installer;
+            });
+    }
+
     public TConcrete CreateInstance<TConcrete>() {
         var instanceType = typeof(TConcrete);
         var instance = (TConcrete)Activator.CreateInstance(instanceType)!;
@@ -20,9 +39,18 @@ public class Container {
         return instance;
     }
 
-    private void Inject<T>(T instance) {
-        InjectIntoMethod(instance);
-        InjectIntoField(instance);
+    private void InjectIntoField<T>(T instance) {
+        var injectionFields = typeof(T)
+            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+            .Where(field => field.GetCustomAttributes(typeof(InjectAttribute)) != null);
+
+        foreach (var field in injectionFields) {
+            var dependency = typeof(Container).GetMethod(nameof(GetInstance))
+                ?.MakeGenericMethod(field.FieldType)
+                .Invoke(this, null);
+
+            field.SetValue(instance, dependency);
+        }
     }
 
     private void InjectIntoMethod<T>(T instance) {
@@ -41,38 +69,10 @@ public class Container {
         }
     }
 
-    private void InjectIntoField<T>(T instance) {
-        var injectionFields = typeof(T)
-            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-            .Where(field => field.GetCustomAttributes(typeof(InjectAttribute)) != null);
-
-        foreach (var field in injectionFields) {
-            var dependency = typeof(Container).GetMethod(nameof(GetInstance))
-                ?.MakeGenericMethod(field.FieldType)
-                .Invoke(this, null);
-
-            field.SetValue(instance, dependency);
-        }
+    private void Inject<T>(T instance) {
+        InjectIntoMethod(instance);
+        InjectIntoField(instance);
     }
-
-    public void ConfigureInstallers() {
-        Type parentType = typeof(Installer);
-        var installers = Assembly.GetCallingAssembly()
-            .GetTypes()
-            .Where(type => parentType.IsAssignableFrom(type) && parentType != type)
-            .Select(type => (Installer)Activator.CreateInstance(type)!);
-
-        foreach (var installer in installers) {
-            Inject(installer);
-            installer.Install();
-        }
-    }
-
-    public void Register<T>(T instance) =>
-        Implementation<T>.ServiceInstance = instance;
-
-    public T? GetInstance<T>() =>
-        Implementation<T>.ServiceInstance;
 
     private static class Implementation<T> {
         public static T? ServiceInstance;
