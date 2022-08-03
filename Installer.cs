@@ -1,10 +1,9 @@
 ﻿namespace DiContainer;
 
-public class Installer {
+public abstract class Installer {
     protected Container Container => _container;
 
     [Inject] private Container _container = null!;
 
-    public virtual void Install() =>
-        throw new NotImplementedException();
+    public abstract void Install();
 }
