@@ -14,15 +14,17 @@ public class Container {
 
     public void ConfigureInstallers() {
         Type parentType = typeof(Installer);
-        var installers = Assembly.GetCallingAssembly()
-            .GetTypes()
-            .Where(type => parentType.IsAssignableFrom(type) && parentType != type)
-            .Select(type => {
-                var installer = (Installer)Activator.CreateInstance(type)!;
-                Inject(installer);
-                installer.Install();
-                return installer;
-            });
+
+        var allTypes = Assembly.GetCallingAssembly().GetTypes();
+        foreach (var type in allTypes) {
+            if (!parentType.IsAssignableFrom(type)) {
+                continue;
+            }
+
+            var installer = (Installer)Activator.CreateInstance(type)!;
+            Inject(installer);
+            installer.Install();
+        }
     }
 
     public TConcrete CreateInstance<TConcrete>() {
